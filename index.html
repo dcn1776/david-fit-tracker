@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>David Fit Tracker</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0ea5e9"/>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin:0; background:#f8fafc; }
+    header { padding:16px; background:#0ea5e9; color:white; }
+    section { padding:16px; }
+    .card { background:white; border-radius:14px; padding:14px; margin-bottom:12px; box-shadow:0 4px 10px rgba(0,0,0,.05); }
+    input, textarea, button { width:100%; padding:8px; margin-top:6px; border-radius:8px; border:1px solid #cbd5e1; }
+    button { background:#0ea5e9; color:white; border:none; margin-top:10px; }
+    .small { font-size:12px; color:#475569; }
+  </style>
+</head>
+<body>
+<header>
+  <h2>David Fit Tracker</h2>
+  <div class="small">PWA v2 · App privada</div>
+</header>
+
+<section>
+  <div class="card">
+    <h3>Registro diario</h3>
+    <label>Peso (kg)</label>
+    <input id="peso" type="number"/>
+    <label>Pasos</label>
+    <input id="pasos" type="number"/>
+    <label>Tensión arterial</label>
+    <input id="ta" placeholder="130/85"/>
+    <label>Entreno</label>
+    <input id="entreno"/>
+    <button onclick="guardar()">Guardar</button>
+  </div>
+
+  <div class="card">
+    <h3>Notas</h3>
+    <textarea id="notas"></textarea>
+  </div>
+</section>
+
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+
+function guardar(){
+  const data = {
+    peso: peso.value,
+    pasos: pasos.value,
+    ta: ta.value,
+    entreno: entreno.value,
+    notas: notas.value,
+    fecha: new Date().toISOString()
+  };
+  localStorage.setItem('davidFit', JSON.stringify(data));
+  alert('Datos guardados');
+}
+(function cargar(){
+  const d = JSON.parse(localStorage.getItem('davidFit')||'{}');
+  peso.value = d.peso||'';
+  pasos.value = d.pasos||'';
+  ta.value = d.ta||'';
+  entreno.value = d.entreno||'';
+  notas.value = d.notas||'';
+})();
+</script>
+</body>
+</html>

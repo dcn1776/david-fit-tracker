@@ -1,0 +1,9 @@
+{
+  "name": "David Fit Tracker",
+  "short_name": "FitTracker",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0ea5e9",
+  "icons": []
+}
