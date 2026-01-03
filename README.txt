@@ -1,15 +1,4 @@
-DAVID FIT TRACKER – PWA v2
+DAVID FIT TRACKER – PWA v3
 
-Incluye:
-- manifest.json
-- service worker
-- modo offline
-- instalación como app real
-
-PUBLICAR:
-1) https://vercel.com → New Project → Upload Folder
-2) Sube esta carpeta
-3) Deploy
-
-INSTALAR:
-Chrome → URL → ⋮ → Añadir a pantalla de inicio
+Incluye: desplegables de menús, plan de entreno, lista de compra y check-ins.
+Publicación (ya lo sabes): sube estos archivos al repo y redeploy en Vercel.

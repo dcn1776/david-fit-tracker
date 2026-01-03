@@ -7,66 +7,290 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0ea5e9"/>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin:0; background:#f8fafc; }
-    header { padding:16px; background:#0ea5e9; color:white; }
-    section { padding:16px; }
-    .card { background:white; border-radius:14px; padding:14px; margin-bottom:12px; box-shadow:0 4px 10px rgba(0,0,0,.05); }
-    input, textarea, button { width:100%; padding:8px; margin-top:6px; border-radius:8px; border:1px solid #cbd5e1; }
-    button { background:#0ea5e9; color:white; border:none; margin-top:10px; }
-    .small { font-size:12px; color:#475569; }
+    :root { --brand:#0ea5e9; --bg:#f8fafc; --card:#fff; --muted:#475569; --border:#cbd5e1; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:#0f172a; }
+    header { padding:16px; background:linear-gradient(90deg,var(--brand),#38bdf8); color:#fff; }
+    header h1 { margin:0; font-size:18px; }
+    header .sub { margin-top:4px; font-size:12px; opacity:.95; }
+    .wrap { max-width:980px; margin:0 auto; padding:14px; }
+    .tabs { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
+    .tab { padding:10px 12px; border-radius:999px; border:1px solid rgba(255,255,255,.4); background:rgba(255,255,255,.12); color:#fff; cursor:pointer; font-size:13px; }
+    .tab.active { background:#fff; color:#0f172a; border-color:#fff; }
+    .grid { display:grid; gap:12px; }
+    @media (min-width:860px) { .grid.cols3{grid-template-columns:1fr 1fr 1fr;} .grid.cols2{grid-template-columns:1fr 1fr;} }
+    .card { background:var(--card); border:1px solid #e2e8f0; border-radius:16px; padding:14px; box-shadow:0 6px 18px rgba(2,6,23,.04); }
+    .card h2 { margin:0 0 10px; font-size:15px; }
+    label { display:block; font-size:12px; color:var(--muted); margin-top:10px; }
+    input,select,textarea { width:100%; padding:10px; border-radius:12px; border:1px solid var(--border); background:#fff; font-size:14px; }
+    textarea { min-height:86px; }
+    .row { display:flex; gap:10px; }
+    .row>div{flex:1;}
+    .btn { background:var(--brand); color:#fff; border:none; border-radius:12px; padding:10px 12px; cursor:pointer; font-weight:600; }
+    .btn.outline { background:#fff; color:#0f172a; border:1px solid var(--border); }
+    .pill { display:inline-flex; align-items:center; padding:6px 10px; border-radius:999px; background:#eef2ff; font-size:12px; }
+    .kpi { display:flex; align-items:center; justify-content:space-between; padding:10px; border-radius:14px; background:#f1f5f9; }
+    .small { font-size:12px; color:var(--muted); }
+    .list { margin:8px 0 0; padding-left:18px; }
+    .hr { height:1px; background:#e2e8f0; margin:12px 0; }
+    .badge { display:inline-block; font-size:12px; padding:4px 8px; border-radius:999px; background:#e2e8f0; }
+    .badge.ok { background:#d1fae5; }
+    footer { padding:16px; color:var(--muted); font-size:11px; }
+    .menuTable { width:100%; border-collapse:separate; border-spacing:0 10px; }
   </style>
 </head>
 <body>
-<header>
-  <h2>David Fit Tracker</h2>
-  <div class="small">PWA v2 · App privada</div>
-</header>
-
-<section>
-  <div class="card">
-    <h3>Registro diario</h3>
-    <label>Peso (kg)</label>
-    <input id="peso" type="number"/>
-    <label>Pasos</label>
-    <input id="pasos" type="number"/>
-    <label>Tensión arterial</label>
-    <input id="ta" placeholder="130/85"/>
-    <label>Entreno</label>
-    <input id="entreno"/>
-    <button onclick="guardar()">Guardar</button>
-  </div>
-
-  <div class="card">
-    <h3>Notas</h3>
-    <textarea id="notas"></textarea>
-  </div>
-</section>
+  <header>
+    <div class="wrap">
+      <h1>David Fit Tracker · PWA v3</h1>
+      <div class="sub">Menús con desplegables · Entreno progresivo · Lista de la compra · Check-in semanal · Offline</div>
+      <div class="tabs" id="tabs"></div>
+    </div>
+  </header>
+  <main class="wrap" id="view"></main>
+  <footer class="wrap">*App privada local. No sustituye a tu médico.</footer>
 
 <script>
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js');
-}
+  const LS='david_fit_pwa_v3';
+  const DAYS=["Lunes", "Martes", "Mi\u00e9rcoles", "Jueves", "Viernes", "S\u00e1bado", "Domingo"];
+  const MEALS=["Desayuno", "Snack", "Comida", "Merienda", "Cena"];
+  const MEAL_LIBRARY={"Bocadillo pavo + queso fresco": ["Pan (mejor integral si toleras)", "Pechuga de pavo (bajo en sal si posible)", "Queso tipo Burgos 0% / queso fresco", "Tomate/lechuga opcional"], "Yogur proteico + nueces + fruta": ["Yogur proteico natural", "Nueces/almendras (medidas)", "Fruta (kiwi/manzana/pera/pi\u00f1a)"], "Tortitas avena + manzana": ["2 huevos o claras + 1 huevo", "Avena", "Manzana", "Canela"], "Arroz caldoso espinacas + calabaza + pavo": ["Arroz", "Espinacas", "Calabaza", "Pavo", "AOVE (medido)", "Especias"], "Fajitas pollo + verduras": ["Tortillas", "Pollo", "Pimientos/calabac\u00edn", "Cebolla", "Yogur natural (salsa)"], "Merluza + verdura": ["Merluza (o pescado blanco)", "Verdura (calabac\u00edn/ensalada/menestra)", "Lim\u00f3n", "AOVE (medido)"], "Lentejas + verduras + pollo": ["Lentejas", "Verduras (zanahoria/puerro/espinaca)", "Pollo", "Especias"], "Pasta integral + tomate + at\u00fan": ["Pasta integral", "Tomate natural", "At\u00fan al natural", "Or\u00e9gano/albahaca"], "Pollo horno + patata + verduras": ["Pollo", "Patata", "Zanahoria", "Calabac\u00edn", "AOVE (medido)", "Hierbas"], "Gelatina 0 / proteica": ["Gelatina 0 o proteica"]};
+  const TRAINING=[["Semana 1 (7\u201313 enero)", ["M7: Caminar 40\u2019 + movilidad 10\u2019", "X8: Fuerza A (40\u201345\u2019): prensa 3x12, jal\u00f3n 3x12, press pecho 3x12, rumano 3x10, plancha 3x20\u201330\u2019\u2019", "J9: Caminar 45\u201350\u2019 (\u00faltimos 10\u2019 m\u00e1s r\u00e1pido)", "V10: Fuerza B (40\u201345\u2019): zancada 3x10/lad, remo 3x12, press hombro 3x12, puente gl\u00fateo 3x12, pallof 3x12", "S11: Tenis 60\u2019 controlado (o caminar 60\u2019)", "D12: Paseo 50\u201360\u2019 + movilidad 10\u2019", "L13: Check-in (peso/cintura/TA/entrenos)"]], ["Semanas 2\u20133 (base)", ["Caminar 5\u20136 d\u00edas 40\u201360\u2019", "Fuerza 2 d\u00edas (A/B) subiendo 1 serie en 1\u20132 ejercicios", "Tenis 1 d\u00eda suave", "Objetivo: 8.000\u20139.000 pasos/d\u00eda"]], ["Semanas 4\u20136 (run/walk)", ["Fuerza 3 d\u00edas", "Run/Walk 2 d\u00edas: 5\u2019 caminar + (1\u2019 trote/2\u2019 caminar) x 8\u201310 + 5\u2019 caminar", "1 d\u00eda paseo largo + movilidad", "Objetivo: 9.000\u201310.000 pasos/d\u00eda"]]];
 
-function guardar(){
-  const data = {
-    peso: peso.value,
-    pasos: pasos.value,
-    ta: ta.value,
-    entreno: entreno.value,
-    notas: notas.value,
-    fecha: new Date().toISOString()
+  function loadState(){ try{return JSON.parse(localStorage.getItem(LS)||'null');}catch(e){return null;} }
+  function saveState(){ localStorage.setItem(LS, JSON.stringify(state)); }
+
+  const state = loadState() || {
+    profile: { name:'Don David', startDate:'2026-01-07', kcalTarget:1950, proteinTarget:150, stepsTarget:8000, sodiumTargetMg:1800 },
+    today: { date:new Date().toISOString().slice(0,10), weightKg:'', steps:'', calories:'', protein:'', waterL:'', bp:'', trainingDone:'', notes:'' },
+    menu: {"Lunes": {"Desayuno": "Bocadillo pavo + queso fresco", "Snack": "Yogur proteico + nueces + fruta", "Comida": "Arroz caldoso espinacas + calabaza + pavo", "Merienda": "Yogur proteico + nueces + fruta", "Cena": "Merluza + verdura"}, "Martes": {"Desayuno": "Bocadillo pavo + queso fresco", "Snack": "Yogur proteico + nueces + fruta", "Comida": "Arroz caldoso espinacas + calabaza + pavo", "Merienda": "Yogur proteico + nueces + fruta", "Cena": "Merluza + verdura"}, "Mi\u00e9rcoles": {"Desayuno": "Bocadillo pavo + queso fresco", "Snack": "Yogur proteico + nueces + fruta", "Comida": "Lentejas + verduras + pollo", "Merienda": "Yogur proteico + nueces + fruta", "Cena": "Merluza + verdura"}, "Jueves": {"Desayuno": "Bocadillo pavo + queso fresco", "Snack": "Yogur proteico + nueces + fruta", "Comida": "Arroz caldoso espinacas + calabaza + pavo", "Merienda": "Yogur proteico + nueces + fruta", "Cena": "Merluza + verdura"}, "Viernes": {"Desayuno": "Bocadillo pavo + queso fresco", "Snack": "Yogur proteico + nueces + fruta", "Comida": "Pasta integral + tomate + at\u00fan", "Merienda": "Yogur proteico + nueces + fruta", "Cena": "Merluza + verdura"}, "S\u00e1bado": {"Desayuno": "Tortitas avena + manzana", "Snack": "Yogur proteico + nueces + fruta", "Comida": "Arroz caldoso espinacas + calabaza + pavo", "Merienda": "Yogur proteico + nueces + fruta", "Cena": "Merluza + verdura"}, "Domingo": {"Desayuno": "Bocadillo pavo + queso fresco", "Snack": "Yogur proteico + nueces + fruta", "Comida": "Pollo horno + patata + verduras", "Merienda": "Yogur proteico + nueces + fruta", "Cena": "Merluza + verdura"}},
+    checkins: []
   };
-  localStorage.setItem('davidFit', JSON.stringify(data));
-  alert('Datos guardados');
-}
-(function cargar(){
-  const d = JSON.parse(localStorage.getItem('davidFit')||'{}');
-  peso.value = d.peso||'';
-  pasos.value = d.pasos||'';
-  ta.value = d.ta||'';
-  entreno.value = d.entreno||'';
-  notas.value = d.notas||'';
-})();
+
+  const TABS=['Dashboard','Menú','Entreno','Lista compra','Check-in'];
+  let active='Dashboard';
+
+  function el(html){ const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content.firstChild; }
+
+  function renderTabs(){ 
+    const host=document.getElementById('tabs'); host.innerHTML='';
+    TABS.forEach(t=>{ 
+      const b=el(`<button class="tab ${active===t?'active':''}" type="button">${t}</button>`);
+      b.onclick=()=>{ active=t; render(); };
+      host.appendChild(b);
+    });
+  }
+
+  function render(){ 
+    renderTabs();
+    const view=document.getElementById('view'); view.innerHTML='';
+    if(active==='Dashboard') view.appendChild(renderDashboard());
+    if(active==='Menú') view.appendChild(renderMenu());
+    if(active==='Entreno') view.appendChild(renderTraining());
+    if(active==='Lista compra') view.appendChild(renderGrocery());
+    if(active==='Check-in') view.appendChild(renderCheckins());
+  }
+
+  function renderDashboard(){ 
+    const p=state.profile, t=state.today;
+    const root=el(`<div class="grid cols3"></div>`);
+
+    root.appendChild(el(`<div class="card">
+      <h2>Objetivos</h2>
+      <div class="kpi"><span>Calorías</span><span class="pill"><b>${p.kcalTarget}</b> kcal</span></div>
+      <div class="kpi"><span>Proteína</span><span class="pill"><b>${p.proteinTarget}</b> g</span></div>
+      <div class="kpi"><span>Pasos</span><span class="pill"><b>${p.stepsTarget}</b></span></div>
+      <div class="kpi"><span>Sodio máx</span><span class="pill"><b>${p.sodiumTargetMg}</b> mg</span></div>
+      <div class="hr"></div>
+      <div class="small"><b>HTA + hígado graso:</b> 0 alcohol · fresco > procesado · AOVE medido · proteína repartida.</div>
+    </div>`));
+
+    const card2=el(`<div class="card">
+      <h2>Log de hoy</h2>
+      <div class="small">Fecha: <b>${t.date}</b></div>
+      <div class="row">
+        <div><label>Peso (kg)</label><input id="w" type="number" value="${t.weightKg}"></div>
+        <div><label>Pasos</label><input id="s" type="number" value="${t.steps}"></div>
+      </div>
+      <div class="row">
+        <div><label>Kcal</label><input id="c" type="number" value="${t.calories}"></div>
+        <div><label>Proteína (g)</label><input id="pr" type="number" value="${t.protein}"></div>
+      </div>
+      <div class="row">
+        <div><label>Agua (L)</label><input id="wa" type="number" step="0.1" value="${t.waterL}"></div>
+        <div><label>Tensión</label><input id="bp" placeholder="130/85" value="${t.bp}"></div>
+      </div>
+      <label>Entreno hecho</label><input id="tr" value="${t.trainingDone}" placeholder="Ej: Fuerza A + caminar 40’">
+      <label>Notas</label><textarea id="nt">${t.notes||''}</textarea>
+      <button class="btn" type="button" id="saveToday">Guardar</button>
+      <div class="small" style="margin-top:8px;">Se guarda en el dispositivo (offline-ready).</div>
+    </div>`);
+    card2.querySelector('#saveToday').onclick=()=>{
+      state.today.weightKg=card2.querySelector('#w').value;
+      state.today.steps=card2.querySelector('#s').value;
+      state.today.calories=card2.querySelector('#c').value;
+      state.today.protein=card2.querySelector('#pr').value;
+      state.today.waterL=card2.querySelector('#wa').value;
+      state.today.bp=card2.querySelector('#bp').value;
+      state.today.trainingDone=card2.querySelector('#tr').value;
+      state.today.notes=card2.querySelector('#nt').value;
+      saveState(); alert('Guardado ✅');
+    };
+    root.appendChild(card2);
+
+    const card3=el(`<div class="card">
+      <h2>Arranque (Semana 1)</h2>
+      <span class="badge ok">Start: ${p.startDate}</span>
+      <ul class="list">
+        <li>Caminar 6–7 días (40–60’)</li>
+        <li>Fuerza 2 días (A/B)</li>
+        <li>Tenis 1 día controlado</li>
+      </ul>
+      <div class="hr"></div>
+      <button class="btn outline" type="button" id="addCheckin">+ Crear check-in semanal</button>
+    </div>`);
+    card3.querySelector('#addCheckin').onclick=()=>{ addWeeklyCheckin(); alert('Check-in creado ✅'); };
+    root.appendChild(card3);
+
+    return root;
+  }
+
+  function renderMenu(){ 
+    const root=el(`<div class="card"></div>`);
+    root.appendChild(el(`<h2>Menú semanal (desplegables)</h2><div class="small">Cambia platos sin romper el marco.</div><div class="hr"></div>`));
+    const dishes=Object.keys(MEAL_LIBRARY);
+    const tbl=el(`<table class="menuTable"></table>`);
+
+    DAYS.forEach(day=>{
+      const row=el(`<tr><td style="width:160px;"><b>${day}</b><div class="small">Plan del día</div></td><td></td></tr>`);
+      const cell=row.children[1];
+      MEALS.forEach(m=>{
+        const id = (`sel_${day}_${m}`).replaceAll(' ','_');
+        const block=el(`<div style="margin-bottom:10px;">
+          <div class="small">${m}</div>
+          <select id="${id}"></select>
+          <div class="small" id="${id}_ing"></div>
+        </div>`);
+        const sel=block.querySelector('select');
+        dishes.forEach(d=>{ const opt=document.createElement('option'); opt.value=d; opt.textContent=d; sel.appendChild(opt); });
+        sel.value = state.menu?.[day]?.[m] || dishes[0];
+
+        function renderIng(){
+          const ing=MEAL_LIBRARY[sel.value]||[];
+          block.querySelector(`#${id}_ing`).innerHTML = ing.length ? ('<span class="badge">Ingredientes</span> ' + ing.join(' · ')) : '';
+        }
+        renderIng();
+
+        sel.onchange=()=>{ 
+          state.menu[day]=state.menu[day]||{};
+          state.menu[day][m]=sel.value;
+          saveState();
+          renderIng();
+        };
+        cell.appendChild(block);
+      });
+      tbl.appendChild(row);
+    });
+
+    const btnRow=el(`<div class="row"><div><button class="btn outline" type="button" id="reset">Reset plantilla</button></div><div><button class="btn" type="button" id="copy">Copiar lista compra</button></div></div>`);
+    btnRow.querySelector('#reset').onclick=()=>{ if(!confirm('¿Resetear menú?')) return; state.menu={"Lunes": {"Desayuno": "Bocadillo pavo + queso fresco", "Snack": "Yogur proteico + nueces + fruta", "Comida": "Arroz caldoso espinacas + calabaza + pavo", "Merienda": "Yogur proteico + nueces + fruta", "Cena": "Merluza + verdura"}, "Martes": {"Desayuno": "Bocadillo pavo + queso fresco", "Snack": "Yogur proteico + nueces + fruta", "Comida": "Arroz caldoso espinacas + calabaza + pavo", "Merienda": "Yogur proteico + nueces + fruta", "Cena": "Merluza + verdura"}, "Mi\u00e9rcoles": {"Desayuno": "Bocadillo pavo + queso fresco", "Snack": "Yogur proteico + nueces + fruta", "Comida": "Lentejas + verduras + pollo", "Merienda": "Yogur proteico + nueces + fruta", "Cena": "Merluza + verdura"}, "Jueves": {"Desayuno": "Bocadillo pavo + queso fresco", "Snack": "Yogur proteico + nueces + fruta", "Comida": "Arroz caldoso espinacas + calabaza + pavo", "Merienda": "Yogur proteico + nueces + fruta", "Cena": "Merluza + verdura"}, "Viernes": {"Desayuno": "Bocadillo pavo + queso fresco", "Snack": "Yogur proteico + nueces + fruta", "Comida": "Pasta integral + tomate + at\u00fan", "Merienda": "Yogur proteico + nueces + fruta", "Cena": "Merluza + verdura"}, "S\u00e1bado": {"Desayuno": "Tortitas avena + manzana", "Snack": "Yogur proteico + nueces + fruta", "Comida": "Arroz caldoso espinacas + calabaza + pavo", "Merienda": "Yogur proteico + nueces + fruta", "Cena": "Merluza + verdura"}, "Domingo": {"Desayuno": "Bocadillo pavo + queso fresco", "Snack": "Yogur proteico + nueces + fruta", "Comida": "Pollo horno + patata + verduras", "Merienda": "Yogur proteico + nueces + fruta", "Cena": "Merluza + verdura"}}; saveState(); render(); };
+    btnRow.querySelector('#copy').onclick=async()=>{ 
+      const list=buildGroceryList().map(x=>`- ${x.item}`).join('\n');
+      try{ await navigator.clipboard.writeText(list); alert('Lista copiada ✅'); }catch(e){ alert('No se pudo copiar'); }
+    };
+    root.appendChild(btnRow);
+    root.appendChild(tbl);
+    return root;
+  }
+
+  function renderTraining(){ 
+    const root=el(`<div class="card"></div>`);
+    root.appendChild(el(`<h2>Plan de entrenamiento (progresivo)</h2><div class="small">RPE 6–7/10. Técnica primero.</div><div class="hr"></div>`));
+    TRAINING.forEach(([title, items])=>{
+      const box=el(`<div class="card" style="margin:0 0 12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <b>${title}</b><span class="badge ok">Operativo</span>
+        </div>
+        <ul class="list"></ul>
+      </div>`);
+      const ul=box.querySelector('ul');
+      items.forEach(x=>{ const li=document.createElement('li'); li.textContent=x; ul.appendChild(li); });
+      root.appendChild(box);
+    });
+    return root;
+  }
+
+  function buildGroceryList(){ 
+    const counts={};
+    DAYS.forEach(day=>{ MEALS.forEach(m=>{ const d=state.menu?.[day]?.[m]; if(!d) return; counts[d]=(counts[d]||0)+1; }); });
+    const items={};
+    Object.entries(counts).forEach(([dish,c])=>{ (MEAL_LIBRARY[dish]||[]).forEach(i=>items[i]=(items[i]||0)+c); });
+    return Object.entries(items).sort((a,b)=>b[1]-a[1]).map(([item,score])=>({item,score}));
+  }
+
+  function renderGrocery(){ 
+    const root=el(`<div class="grid cols2"></div>`);
+    const left=el(`<div class="card"><h2>Lista de la compra (auto)</h2><div class="small">Generada desde tu menú.</div><div class="hr"></div><div id="list"></div><button class="btn" type="button" id="copy2">Copiar</button></div>`);
+    const right=el(`<div class="card"><h2>Batch cooking</h2><ul class="list">
+      <li>Domingo: pollo al horno + verduras + patata</li>
+      <li>Verdura lista: ensalada + congelados</li>
+      <li>Proteína rápida: huevos, yogur proteico, latas al natural</li>
+    </ul><div class="hr"></div><div class="small"><b>HTA:</b> ojo con fiambres salados y salsas.</div></div>`);
+    const list=left.querySelector('#list');
+    const data=buildGroceryList();
+    data.forEach(x=>{ list.appendChild(el(`<div class="kpi"><span>${x.item}</span><span class="pill">x${x.score}</span></div>`)); });
+    left.querySelector('#copy2').onclick=async()=>{ 
+      const txt=data.map(x=>`- ${x.item}`).join('\n');
+      try{ await navigator.clipboard.writeText(txt); alert('Copiado ✅'); }catch(e){ alert('No se pudo copiar'); }
+    };
+    root.appendChild(left); root.appendChild(right);
+    return root;
+  }
+
+  function addWeeklyCheckin(){ 
+    const d=new Date();
+    const day=d.getDay();
+    const diff=(day===0?-6:1)-day;
+    d.setDate(d.getDate()+diff);
+    const iso=d.toISOString().slice(0,10);
+    state.checkins.unshift({ weekStart:iso, weightKg:'', waistCm:'', avgSteps:'', workouts:'', bp:'', notes:'' });
+    saveState();
+  }
+
+  function renderCheckins(){ 
+    const root=el(`<div></div>`);
+    const top=el(`<div class="card"><h2>Check-in semanal</h2><div class="small">Peso, cintura, TA, entrenos.</div><button class="btn" type="button" id="add">+ Añadir check-in</button></div>`);
+    top.querySelector('#add').onclick=()=>{ addWeeklyCheckin(); render(); };
+    root.appendChild(top);
+    if(!state.checkins.length){ root.appendChild(el(`<div class="card"><div class="small">Aún no hay check-ins.</div></div>`)); return root; }
+    state.checkins.forEach((c,idx)=>{
+      const box=el(`<div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <b>Semana (lunes): ${c.weekStart}</b>
+          <span class="badge ${idx===0?'ok':''}">${idx===0?'Más reciente':'Histórico'}</span>
+        </div>
+        <div class="hr"></div>
+        <div class="grid cols3">
+          <div><label>Peso (kg)</label><input data-k="weightKg" value="${c.weightKg}"></div>
+          <div><label>Cintura (cm)</label><input data-k="waistCm" value="${c.waistCm}"></div>
+          <div><label>Pasos medio</label><input data-k="avgSteps" value="${c.avgSteps}"></div>
+          <div><label>Entrenos</label><input data-k="workouts" value="${c.workouts}"></div>
+          <div><label>TA</label><input data-k="bp" placeholder="130/85" value="${c.bp}"></div>
+        </div>
+        <label>Notas</label><textarea data-k="notes">${c.notes||''}</textarea>
+        <button class="btn outline" type="button">Guardar</button>
+      </div>`);
+      box.querySelector('button').onclick=()=>{ 
+        box.querySelectorAll('[data-k]').forEach(inp=>{ state.checkins[idx][inp.getAttribute('data-k')] = inp.value; });
+        saveState(); alert('Check-in guardado ✅');
+      };
+      root.appendChild(box);
+    });
+    return root;
+  }
+
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+  render();
 </script>
 </body>
 </html>
